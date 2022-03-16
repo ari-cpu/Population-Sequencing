@@ -1,0 +1,85 @@
+#!/bin/bash -l
+#SBATCH -J Combi
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32GB
+#SBATCH -N 1
+#SBATCH --account=AG-Maier
+#SBATCH --mail-type=END 
+#SBATCH --mail-user aleu1@uni-koeln.de 
+#SBATCH --time=05:00:00
+#SBATCH --array=1-4
+i=$SLURM_ARRAY_TASK_ID
+#i=2
+
+#define paths and the fasta name
+#ReadPath="/projects/ag-advol/dictionaries/BsubNC_000964wt" #!
+readPath="/scratch/ari/mockgenome" #!
+SavePath=$readPath"/Raw" #!
+dict="Bs166_mock_1" #!
+#dict="BsubNC_000964wt"
+
+
+declare -a HelpArr=(15000000 7500000 3750000 1875000) #!
+declare -a NameArr=("5" "25" "125" "625") #!
+# wgsim
+#-e FLOAT      base error rate [0.020] ###
+#-d INT        outer distance between the two ends [500]
+#-s INT        standard deviation [50]
+#-N INT        number of read pairs [1000000]
+#-1 INT        length of the first read [70]
+#-2 INT        length of the second read [70]
+#-r FLOAT      rate of mutations [0.0010] ###
+#-R FLOAT      fraction of indels [0.15]
+#-X FLOAT      probability an indel is extended [0.30]
+#-S INT        seed for random generator [0, use the current time]
+#-A FLOAT      discard if the fraction of ambiguous bases higher than FLOAT [0.05]
+#-h            haplotype mode
+
+numberReads=${HelpArr[i-1]}
+name=${NameArr[i-1]}
+
+reads="Bsub_MockReads_newMixes_change1_"$name #!
+
+
+cd /home/aleu1/software/wgsim-master
+
+# 
+./wgsim -e 0.005 -r 0  -N $numberReads -1 150 -2 150 -d 150 -S 0 -R 0 -s 20 -S 7 $readPath/$dict".fasta" \
+$SavePath/$reads"_1.fq" $SavePath/$reads"_2.fq" 
+
+# the quality is automatically set to 1 which is bad, so try to replace the quality
+awk ' /111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111/ { gsub("1", "9"); print $0; next } { print } ' $SavePath/$reads"_1.fq" > $SavePath/$reads"_Qto9_1.fq" && mv $SavePath/$reads"_Qto9_1.fq" $SavePath/$reads"_1.fq" 
+awk ' /111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111/ { gsub("1", "9"); print $0; next } { print } ' $SavePath/$reads"_2.fq" > $SavePath/$reads"_Qto9_2.fq" && mv $SavePath/$reads"_Qto9_2.fq" $SavePath/$reads"_2.fq"
+
+# Example for reads with mutation rate ~= default and log output
+#mr="0.1"
+#./wgsim -e 0 -h -N 400000 -1 150 -2 150 -d 150 -r $mr -S 0 -R 0 -s 20 -S 7 $FastaPath/$dict".fasta" \
+#$ReadPath/$reads"_1.fq" $ReadPath/$reads"_2.fq" \
+#> $ReadPath/$reads"MR"$mr"_ER0_cov10".log
+
+#myDataRaw="/scratch/ari/mockgenome"
+#myQCRaw="/scratch/ari/mockgenome"
+#myDataTrim="/scratch/ari/mockgenome"
+#myQCTrim="/scratch/ari/mockgenome"
+
+#Define folders where software is installed
+#FastQCFold="/home/aleu1/software/FastQC"
+#TrimmFold="/home/aleu1/software/Trimmomatic-0.39"
+
+# here you map against: .fasta
+#ID="Bsub_MockReads_change1_1"
+
+#FastQC before
+#cd $FastQCFold
+#./fastqc -o $myQCRaw/ $myDataRaw/$ID"_1.fq" -t 8
+#./fastqc -o $myQCRaw/ $myDataRaw/$ID"_2.fq" -t 8
+
+
+#ID="Bsub_MockReads_change1_Qto9"
+
+#FastQC before
+#cd $FastQCFold
+#./fastqc -o $myQCRaw/ $myDataRaw/$ID"_1.fq" -t 8
+#./fastqc -o $myQCRaw/ $myDataRaw/$ID"_2.fq" -t 8
+
+    
