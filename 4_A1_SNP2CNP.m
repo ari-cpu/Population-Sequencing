@@ -1,11 +1,11 @@
-          % %                                       % %
+                  % %                                       % %
          % % %                                     % % % 
         % % % %    SNP2CNP created by MonaIsa     % % % %
          % % %        slight changes by Ari        % % %
           % %                                       % % 
          
-%input: SNP/BCFSummary and corresponding CallSummary     
-                                           
+%input: SNP/BCFSummary and corresponding CallSummary  
+
 clearvars
 
                      %                      %
@@ -34,6 +34,8 @@ end
 mmlist = '/home/isabel/shared_Master/Matlab/Bs166NCe_mm.txt';
 artefacts = '/home/isabel/shared_Master/Matlab/Artefacts_Bs1662BsNCe.vcf';
 recipsize = 4215607;
+fit_param=1.09908694121719;
+fit_paramErr=0.0264020807914224;
 
 %
 
@@ -52,11 +54,18 @@ samplenames = [];
 SNPPath = "/home/isabel/shared_Master/Matlab/";
 
 saveCNPSummary = "on"; % Turn "on" to save the CNPSummary !
+call=false;
+
 
 if strcmp(SNPSource, "SNPSummary") 
     % You can give more than {1} SNPSummary and CallSummary as input
-    SNPName{1} = "20220315_Mix13_BCFSummary.mat";
-    CallName{1}="20220315_Mix13_CallSummary_ml.mat";
+    SNPName{1} = "20220425_Swarmer_SNPSummary.mat";
+    %SNPName{2} = "20220412_LibSCBval7_BCFSummary.mat";
+    %SNPName{3} = "20220412_LibSCBval9_BCFSummary.mat";
+    %SNPName{4} = "20220412_LibSCBval17_BCFSummary.mat";
+    %SNPName{5} = "20220412_LibSCBval89_BCFSummary.mat";
+    
+    %CallName{1}="20220328_repair_Mix10_CallSummary_ml.mat";
     %SNPName{2} = "20220217_SNPSummary.mat";
 
 
@@ -91,9 +100,11 @@ if strcmp(SNPSource, "SNPSummary")
     
     for i = 1 : length(SNPName)  
         Data = load(SNPPath + SNPName{i});
-        Datafp=load(SNPPath+CallName{i});
         allSNPs = [allSNPs Data.SNPSummary];
+        if call
+        Datafp=load(SNPPath+CallName{i});
         allCall=[allCall Datafp];
+        end
     end
     if isempty(samplenames)
         samplenames = [allSNPs.Sample];
@@ -122,6 +133,7 @@ Cdist = cell(length(C),1);              % minimum length of the detected cluster
 Mdist = cell(length(C),1);              % maximum length (including the distance to the next mlsnp or to the start of the next accessory part)
 Adist = cell(length(C),1);              % average length ((maxlen-minlen)/2+minlen)
 ident = cell(length(C),1);
+varfreq=cell(length(C),1);
 transfer = zeros(1,length(C));
 ORI_CROSSING = zeros(length(C),1);
 
@@ -190,7 +202,9 @@ for m = 1:numel(samplenames)
 % import SNP list of the current sample
 clear snp
 findSample = strcmp(samplenames(m), [allSNPs.Sample]);
+if call 
 findCall = strcmp(samplenames(m), [allCall.CallSummary.SampleName]);
+end
 
 if length(nonzeros(findSample)) == 0
     error("Your SNPSummary does not contain sample '%s'!", samplenames(m));
@@ -200,7 +214,7 @@ elseif length(nonzeros(findSample)) > 1
     idx = find(findSample == 1);
     findSample = min(idx);
 end
-
+if call
 if length(nonzeros(findCall)) == 0
     fprintf("There is no CallSummary fitting your sample!");
 elseif length(nonzeros(findCall)) > 1
@@ -209,14 +223,20 @@ elseif length(nonzeros(findCall)) > 1
     idx = find(findCall == 1);
     findCall=min(idx);
 end
-
+end
 snp.atcg = [allSNPs(findSample).FilterSummary.filtered(:).alt]';
 snp.pos = [allSNPs(findSample).FilterSummary.filtered(:).pos]';
 snp.vf=[allSNPs(findSample).FilterSummary.filtered(:).varfreq]';
+snp.dp=[allSNPs(findSample).FilterSummary.filtered(:).DP]';
+snp.vfRef=[allSNPs(findSample).FilterSummary.filtered(:).vfRef]';
 
+
+if call 
 FalsePositives=allCall(findCall).CallSummary.FalsePositives;
 fp.pos=[FalsePositives(:).pos];
 fp.vf=[FalsePositives(:).varfreq];
+fp.alt=[FalsePositives(:).alt];
+end
 
 % remove the artefacts 
 for i = 1 : length(artefact.pos)
@@ -330,15 +350,8 @@ for i = 1 : length(start)
     clustermask = [clustermask start(i):edge(i)];
 end 
 
-%% meins !!!!!!!!!!!!!!!!!!!!!!!!!!
-infoidx=ismember(snp.pos, clustermask); %remember the information about all SNPs in the found clusters
-fpinfoidx=ismember(fp.pos, clustermask); % find all false positives within the found cluster boundaries
-CNPInfo=[snp.pos(infoidx), snp.atcg(infoidx), snp.vf(infoidx)];
-fpClu.pos=[fp.pos(fpinfoidx)];
-fpClu.vf=[fp.vf(fpinfoidx)];
 
 
-%% hier !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 % Compare with accessory genome (and multi mapper regions) and cut out
 % overlapping positions
@@ -348,6 +361,21 @@ clear clustermask acc_filt
 
 % Are denovos in a cluster or outside ?
 denovo{m}(2,:) = ismember(denovo{m}(1,:), clustermask_filt);
+
+%% meins !!!!!!!!!!!!!!!!!!!!!!!!!!
+
+infoidx=ismember(snp.pos, clustermask_filt); %remember the information about all SNPs in the found clusters
+CNPInfo=[snp.pos(infoidx), snp.atcg(infoidx), snp.vf(infoidx), snp.dp(infoidx), snp.vfRef(infoidx)];
+if call==true
+fpinfoidx=ismember(fp.pos, clustermask_filt);  % find all false positives within the found cluster boundaries
+fpClu.pos=[fp.pos(fpinfoidx)];
+fpClu.vf=[fp.vf(fpinfoidx)];
+fpClu.alt=[fp.alt(fpinfoidx)];
+end
+%% hier !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
 
 % Now go back from the list of all positions in a cluster to start/end
 % position of the detected (acc.gen. and mm-regions - cleaned) cluster
@@ -414,8 +442,29 @@ for i = 1 : length(start)
     Adist{m}(i,2) = ceil(mdist_front + (start(i) - mdist_front)/2);
     Adist{m}(i,3) = ceil(mdist_back - (mdist_back - edge(i))/2);
     Adist{m}(i,1) = Adist{m}(i,3) - Adist{m}(i,2) + 1;
+    
+    
+    
+    %!!!!!!!!! calculate mean variant frequency in cluster !!!!!!!!!!!
 
-    clear mdist cdist mdist_back mdist_front
+    maskCl=find(str2double(CNPInfo(:, 1))>=start(i) & str2double(CNPInfo(:, 1))<=edge(i));
+    varfreq{m}(i, 1)=mean(str2double(CNPInfo(maskCl, 3)));
+    varfreq{m}(i, 2)=std(str2double(CNPInfo(maskCl, 3)));
+    
+    maskCorr=str2double(CNPInfo(maskCl, 3))>=varfreq{m}(i, 1)-varfreq{m}(i, 2);
+    maskvf=maskCl(maskCorr);
+    
+    varfreq{m}(i, 3)=mean(str2double(CNPInfo(maskvf, 3)));
+    
+    varfreq{m}(i, 4)=mean(str2double(CNPInfo(maskCl, 3)))*fit_param;
+    varfreq{m}(i, 5)=mean(str2double(CNPInfo(maskCl, 3)))*fit_paramErr;
+    
+    C{m}(5, i)=mean(str2double(CNPInfo(maskCl, 3)))*fit_param;
+    C{m}(6, i)=mean(str2double(CNPInfo(maskCl, 3)))*fit_paramErr;
+    
+    
+
+    clear mdist cdist mdist_back mdist_front clear maskvf maskCl
 end 
    
 % Now merge, the ORI crossing cluster 
@@ -435,7 +484,19 @@ if ORI_CROSSING(m)~=0
     
     Cdist{m}(1,1) = Cdist{m}(1,1) + Cdist{m}(end,1);
     Cdist{m}(end, :) = [];
+    
+    varfreq{m}(1, 1)=(varfreq{m}(1, 1)+varfreq{m}(end, 1))/2;
+    varfreq{m}(end, 1)=[];
+    varfreq{m}(1, 2)=(varfreq{m}(1, 2)+varfreq{m}(end, 2))/2;
+    varfreq{m}(end, 2)=[];
+    varfreq{m}(1, 3)=(varfreq{m}(1, 3)+varfreq{m}(end, 3))/2;
+    varfreq{m}(end, 3)=[];
+    varfreq{m}(1, 4)=(varfreq{m}(1, 3)+varfreq{m}(end, 3))/2;
+    varfreq{m}(end, 4)=[];
+    varfreq{m}(1, 5)=(varfreq{m}(1, 3)+varfreq{m}(end, 3))/2;
+    varfreq{m}(end, 5)=[];
 end 
+
     
 % Calculate the identity:
 % Identity = 1 - (# mlSNPs) / Adist
@@ -457,11 +518,16 @@ end
 
 %save 
 samplenamesC = cellfun(@(x) {string(x)},cellstr(samplenames));
-CNPInfostr=struct('pos', str2double(CNPInfo(:, 1)), 'alt', CNPInfo(:, 2), 'varfreq', str2double(CNPInfo(:, 3)));
-CNPSummary = struct('C',C,'Cdist',Cdist,'Adist',Adist,'Mdist',Mdist,'denovo',denovo,'SPI',SPI, 'Ident', ident,'ORI_Crossing',num2cell(ORI_CROSSING),'Transfer', num2cell(transfer'),'Sample', samplenamesC', 'Info', CNPInfostr, 'FPInfo', fpClu);
+if call
+CNPInfostr=struct('pos', str2double(CNPInfo(:, 1)), 'alt', CNPInfo(:, 2), 'varfreq', str2double(CNPInfo(:, 3)), 'DP',str2double(CNPInfo(:, 4)),'vfRef',str2double(CNPInfo(:, 5)));
+CNPSummary = struct('C',C,'Cdist',Cdist,'Adist',Adist,'Mdist',Mdist,'denovo',denovo,'SPI',SPI, 'Ident', ident,'ORI_Crossing',num2cell(ORI_CROSSING),'Transfer', num2cell(transfer'),'ClusterFrequency',varfreq,'Sample', samplenamesC', 'Info', CNPInfostr, 'FPInfo', fpClu);
+else
+CNPInfostr=struct('pos', str2double(CNPInfo(:, 1)), 'alt', CNPInfo(:, 2), 'varfreq', str2double(CNPInfo(:, 3)),'DP', str2double(CNPInfo(:, 4)),'vfRef',str2double(CNPInfo(:, 5)));
+CNPSummary = struct('C',C,'Cdist',Cdist,'Adist',Adist,'Mdist',Mdist,'denovo',denovo,'SPI',SPI, 'Ident', ident,'ORI_Crossing',num2cell(ORI_CROSSING),'Transfer', num2cell(transfer'),'ClusterFrequency',varfreq,'Sample', samplenamesC','Info', CNPInfostr);
+end
 
 if saveCNPSummary == "on"
-    save(savepath + datestr(now, 'yyyymmdd') + "_Mix13_CNPSummary.mat", 'CNPSummary')
+    save(savepath + datestr(now, 'yyyymmdd') + "_Swarmer_CNPSummary.mat", 'CNPSummary')
 end
 
 % Tidy up; comment out if you like to have a closer look at variables
