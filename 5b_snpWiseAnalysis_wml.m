@@ -1,5 +1,5 @@
 %input: SNPSummary or BCFSummary, masterlist, changelists
-%generates a CallSummary containing found SNPs compared to expected SNPs,
+%generates a CallSummary containing found SNPs compared to expected SNPs,https://github.com/ari-cpu/Population-Sequencing/blob/main/5b_npWiseAnalysis_wml.m
 %false positives etc
 %basis is the comparison with expected SNPs from the masterlist
 
