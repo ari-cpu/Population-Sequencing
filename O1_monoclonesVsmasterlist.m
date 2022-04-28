@@ -18,7 +18,7 @@ masterlist=SNPPath+"mlBval2Bs166NCe_v1.txt";
 change=SNPPath+"mockfastas/changelist";
 %fasta=SNPPath+"mock_reads/"+SampleName;
 %SNPName="20211124_comp_SNPSummary.mat";
-SNPName="20220314_newMixes_comp_SNPSummary.mat" %name of SNPSummary
+SNPName="20220405_repairMixes_SNPSummary.mat" %name of SNPSummary
 
 MonoData=load(SNPPath+SNPName); %load data from SNPSummary
 
@@ -122,4 +122,82 @@ for i=1:G
     
 end
 
+
+%% CNPSummary
+
+
+
+CNPName="/home/isabel/shared_Master/Matlab/20220405_repairMixesCall_CNPSummary.mat" 
+changelist="/home/isabel/shared_Master/Matlab/mockfastas/changelistSummary_repair.txt"
+
+fid=fopen(changelist);
+imp2=textscan(fid, '%f %f %f %f %f %f %*f %*f %*f' , 'HeaderLines', 1);
+clear fid 
+%start and end positions from clusters by changelist 
+
+StartCh=imp2{:, 1};
+EndCh=imp2{:, 2};
+
+cLen=length(StartCh);
+
+clear CompCNPSummary
+CompCNPSummary(cLen)=struct();
+
+CNPSummary=load(CNPName);
+CompCluster=[CNPSummary.CNPSummary(:).C];
+    
+   
+StartCl=CompCluster(1, :);
+EndCl=CompCluster(2, :);
+
+for i=1:cLen
+    
+   maskCh=[ml(:).pos]>=StartCh(i) & [ml(:).pos]<=EndCh(i); 
+   clSNP=[ml(maskCh).pos];
+   mlClLen=length(linspace(clSNP(1), clSNP(end), clSNP(end)-clSNP(1)));
+   
+   CNPmask=StartCl>=clSNP(1)-100 & EndCl <= clSNP(end)+100;
+   Cluster=[StartCl(CNPmask) ;EndCl(CNPmask)];
+   callClLen=0;
+   for j=1:length(StartCl(CNPmask))
+       
+       callClLen=callClLen+length(linspace(Cluster(1, j), Cluster(2, j), Cluster(2, j)-Cluster(1, j)));
+            
+   end
+   
+   CompCNPSummary(i).changeCluster=[clSNP(1); clSNP(end)];
+   CompCNPSummary(i).callCluster=[StartCl(CNPmask) ;EndCl(CNPmask)];
+   CompCNPSummary(i).changeClusterLength=mlClLen;
+   CompCNPSummary(i).callClusterLength=callClLen;
+   if CompCNPSummary(i).callCluster(1, 1) < CompCNPSummary(i).changeCluster(1, 1) && CompCNPSummary(i).callCluster(2, end) > CompCNPSummary(i).changeCluster(2, 1)
+       CompCNPSummary(i).RealLength=CompCNPSummary(i).callClusterLength-length([CompCNPSummary(i).callCluster(1, 1):1:CompCNPSummary(i).changeCluster(1, 1)])...
+           -length([CompCNPSummary(i).callCluster(1, 1):1:CompCNPSummary(i).changeCluster(1, 1)]);
+       CompCNPSummary(i).FPLength=  CompCNPSummary(i).callClusterLength-CompCNPSummary(i).RealLength;
+      
+   
+   elseif CompCNPSummary(i).callCluster(1, 1) < CompCNPSummary(i).changeCluster(1, 1)
+       
+      CompCNPSummary(i).RealLength=CompCNPSummary(i).callClusterLength-length([CompCNPSummary(i).callCluster(1, 1):1:CompCNPSummary(i).changeCluster(1, 1)]);
+      CompCNPSummary(i).FPLength=  CompCNPSummary(i).callClusterLength-CompCNPSummary(i).RealLength;
+      
+      
+   elseif CompCNPSummary(i).callCluster(2, end) > CompCNPSummary(i).changeCluster(2, 1)
+    
+      CompCNPSummary(i).RealLength=CompCNPSummary(i).callClusterLength-length(CompCNPSummary(i).changeCluster(2, 1):1:CompCNPSummary(i).callCluster(2, end));
+      CompCNPSummary(i).FPLength=  CompCNPSummary(i).callClusterLength-CompCNPSummary(i).RealLength;
+     
+   else
+       CompCNPSummary(i).RealLength=CompCNPSummary(i).callClusterLength;
+   end
+       
+      CompCNPSummary(i).Found=  CompCNPSummary(i).RealLength/CompCNPSummary(i).changeClusterLength;
+   
+   
+   
+end
+
+
+
+
+    
     
