@@ -1,12 +1,12 @@
 % input: _bcfilt.vcf files
 
+%% !!!!!!!!!!!!! remember to change the name for saving !!!!!!!
 
 clearvars
 
-path = "/home/isabel/shared_Master/Matlab/"; %path where output summary is saved
+path ="/home/isabel/shared_Master/Matlab/"; %path where output summary is saved
 
-filepath ="/home/isabel/shared_Master/Matlab/bcf/mock/"; %path to input files
-
+filepath = "/home/isabel/MasterBackup/"; %path to input files
 
 filesuffix="_bcfilt.vcf";
 
@@ -16,9 +16,9 @@ mode='ad'; % filter by AD thr or DP and variant frequency ?
 % set thresholds
 cutoff_dp=900;
 cutoff_freq=0.02;
-cutoff_ad=20;
+cutoff_ad=20; %!!!!!!!!!!!!!!!!!!!!!!!!!!anpassen je nach DP
 
-sampleName=["Bsub_MockReads_Mix13_changeAll_bcfmp"] %input sample names
+sampleName=["LibSCBval89_bcfmp"] %input sample names
 for i=1:length(sampleName)
 
     
@@ -51,7 +51,7 @@ counts=cellfun(@(a) split(a, ','), counts,'UniformOutput', false);
 counts=cellfun(@str2double, counts, 'UniformOutput', false);
 sumcounts=cellfun(@sum, counts, 'UniformOutput', false);
 altcounts=cellfun(@(a) a(2:end), counts, 'UniformOutput', false);
-%refcounts=cellfun(@(a) a(1), counts, 'UniformOutput', false);
+refcounts=cellfun(@(a) a(1), counts, 'UniformOutput', false);
 
 
 %h_dp=histogram(cell2mat(sumcounts), 100);
@@ -123,7 +123,7 @@ refFilt=cellfun(@convertCharsToStrings, refFilt, 'UniformOutput', false);
  
 %fill Summary 
 SNPSummary(i).FilterSummary.filtered=cell2struct(horzcat(num2cell([posfilt(:)]),refFilt, ...
-    altfilt, freq(mask_tot)), ["pos", "ref", "alt", "varfreq"], 2);
+    altfilt, freq(mask_tot), sumcounts(mask_tot), refcounts(mask_tot)),["pos", "ref", "alt", "varfreq","DP", "vfRef"], 2);
 
 
 
@@ -135,7 +135,7 @@ clear mask_tot
 end
 
 %save summmary
-save(path+datestr(now, 'yyyymmdd')+"_Mix13_BCFSummary.mat", 'SNPSummary');
+save(path+datestr(now, 'yyyymmdd')+"_LibSCBval89_BCFSummary.mat", 'SNPSummary');
 
 
 
