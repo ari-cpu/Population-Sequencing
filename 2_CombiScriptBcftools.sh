@@ -45,10 +45,12 @@ cd $samFold
 
 
 #Mpileup - Information for every position on the dictionary is piled up from the information of every single read
+#-a FORMAT/AD -> give info about allelic depth on _bcf.vcf
+#-d maximum number of reads considered at each position
 cd $bcfFold
 ./bcftools mpileup -e 10 -F 0.00001 -h 80 -L 10000 -o 20 -a FORMAT/AD -d 8000 -f $myDictPath/$dict.fasta $myDataPath/$IDout"_sort.bam" > $myDataPath/$IDout"_bcfmp_bcf.vcf"
 
-#Variant calling - Gives out only variants
+#Variant calling - Gives out only variants (not used, only kept for comparison)
 cd $bcfFold
 ./bcftools call -vc $myDataPath/$IDout"_bcfmp_bcf.vcf" > $myDataPath/$IDout"_bcfmp_bcfcall.vcf" 
 
